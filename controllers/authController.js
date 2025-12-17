@@ -28,7 +28,7 @@ exports.register = async (req, res) => {
     });
 
     // Remove a senha da resposta
-    const userResponse = { ...user };
+    const userResponse = user.toJSON();
     delete userResponse.password;
 
     res.json({ message: 'Usuário registrado com sucesso', user: userResponse });

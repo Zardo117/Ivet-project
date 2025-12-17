@@ -135,7 +135,12 @@ if (USE_MOCK_DB) {
             return await mockDb.findDiagnosisById(options.where.id);
           }
           return null;
-        }
+        },
+        // Métodos stub para relacionamentos (não fazem nada no mock)
+        hasMany: () => model,
+        belongsTo: () => model,
+        hasOne: () => model,
+        belongsToMany: () => model
       };
       return model;
     },

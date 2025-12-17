@@ -1,18 +1,49 @@
-// routes/petRoutes.js
-
 const express = require('express');
 const router = express.Router();
 const petController = require('../controllers/petController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
+// Todas as rotas de pets requerem autenticação
+router.use(authMiddleware);
+
+/**
+ * @swagger
+ * /api/pets:
+ *   get:
+ *     summary: Lista todos os pets (ou apenas os do tutor logado)
+ *     tags: [Pets]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de pets
+ */
+router.get('/', petController.getPets);
+
+/**
+ * @swagger
+ * /api/pets/{id}:
+ *   get:
+ *     summary: Busca um pet pelo ID
+ *     tags: [Pets]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Detalhes do pet
+ */
+router.get('/:id', petController.getPetById);
+
 /**
  * @swagger
  * /api/pets:
  *   post:
- *     summary: Cadastrar um novo pet no sistema
+ *     summary: Cadastra um novo pet
  *     tags: [Pets]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -22,87 +53,39 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *             required:
  *               - name
  *               - species
- *               - ownerId
  *             properties:
  *               name:
  *                 type: string
- *                 description: Nome do pet
- *                 example: Rex
  *               species:
  *                 type: string
- *                 description: Espécie do animal (cão, gato, etc.)
- *                 example: cão
  *               breed:
  *                 type: string
- *                 description: Raça do animal
- *                 example: Labrador
  *               age:
  *                 type: integer
- *                 description: Idade do animal em anos
- *                 example: 3
- *               ownerId:
- *                 type: integer
- *                 description: ID do tutor (usuário) responsável pelo pet
- *                 example: 1
+ *               weight:
+ *                 type: number
  *     responses:
- *       200:
- *         description: Pet cadastrado com sucesso
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: integer
- *                 name:
- *                   type: string
- *                 species:
- *                   type: string
- *                 breed:
- *                   type: string
- *                 age:
- *                   type: integer
- *                 ownerId:
- *                   type: integer
- *       401:
- *         description: Não autenticado
+ *       201:
+ *         description: Pet criado com sucesso
  */
-router.post('/', authMiddleware, petController.createPet);
+router.post('/', petController.createPet);
 
 /**
  * @swagger
- * /api/pets:
- *   get:
- *     summary: Listar todos os pets cadastrados
+ * /api/pets/{id}:
+ *   delete:
+ *     summary: Remove um pet
  *     tags: [Pets]
- *     security:
- *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
- *         description: Lista de pets retornada com sucesso
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: integer
- *                   name:
- *                     type: string
- *                   species:
- *                     type: string
- *                   breed:
- *                     type: string
- *                   age:
- *                     type: integer
- *                   ownerId:
- *                     type: integer
- *       401:
- *         description: Não autenticado
+ *         description: Pet removido
  */
-router.get('/', authMiddleware, petController.getPets);
+router.delete('/:id', petController.deletePet);
 
 module.exports = router;
-

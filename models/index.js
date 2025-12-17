@@ -5,6 +5,7 @@ const User = require('./User');
 const Pet = require('./Pet');
 const Appointment = require('./Appointment');
 const Diagnosis = require('./Diagnosis');
+const Product = require('./Product');
 
 // Relacionamentos
 
@@ -56,6 +57,7 @@ module.exports = {
   User,
   Pet,
   Appointment,
-  Diagnosis
+  Diagnosis,
+  Product
 };
 
