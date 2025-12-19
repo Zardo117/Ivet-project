@@ -8,14 +8,29 @@ exports.register = async (req, res) => {
   try {
     const { name, email, password, role, phone } = req.body;
 
+    console.log('Tentativa de registro:', { name, email, role, hasPassword: !!password });
+
     if (!name || !email || !password || !role) {
+      console.log('Validação falhou:', { hasName: !!name, hasEmail: !!email, hasPassword: !!password, hasRole: !!role });
       return res.status(400).json({ error: 'Nome, email, senha e papel são obrigatórios' });
+    }
+
+    // Validação de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Email inválido' });
     }
 
     // Verifica se o usuário já existe
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
+      console.log(`Tentativa de registro com email já cadastrado: ${email}`);
       return res.status(400).json({ error: 'Email já cadastrado' });
+    }
+
+    // Validação de senha
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -31,10 +46,46 @@ exports.register = async (req, res) => {
     const userResponse = user.toJSON();
     delete userResponse.password;
 
-    res.json({ message: 'Usuário registrado com sucesso', user: userResponse });
+    console.log(`Usuário registrado com sucesso: ${email}`);
+    res.status(201).json({ 
+      message: 'Usuário registrado com sucesso', 
+      user: {
+        id: String(userResponse.id),
+        name: userResponse.name,
+        email: userResponse.email,
+        role: userResponse.role
+      }
+    });
   } catch (error) {
     console.error('Erro ao registrar usuário:', error);
-    res.status(500).json({ error: 'Erro ao registrar usuário' });
+    console.error('Stack trace:', error.stack);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    
+    // Tratar erros específicos do Sequelize
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ error: 'Email já cadastrado' });
+    }
+    
+    if (error.name === 'SequelizeValidationError') {
+      const validationErrors = error.errors.map((err) => err.message).join(', ');
+      return res.status(400).json({ error: `Dados inválidos: ${validationErrors}` });
+    }
+
+    // Retornar erro mais detalhado para debug
+    const errorResponse = {
+      error: 'Erro ao registrar usuário',
+      message: error.message || 'Erro desconhecido',
+      name: error.name || 'UnknownError'
+    };
+
+    // Se for erro de conexão com banco, dar mensagem mais clara
+    if (error.name === 'SequelizeConnectionError' || error.message?.includes('connection')) {
+      errorResponse.error = 'Erro de conexão com o banco de dados';
+      console.error('Erro de conexão com banco detectado');
+    }
+
+    res.status(500).json(errorResponse);
   }
 };
 
