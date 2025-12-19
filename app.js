@@ -10,7 +10,46 @@ require('dotenv').config();
 const app = express();
 
 // Middlewares
-app.use(cors());
+// Configurar CORS para aceitar requisições do frontend
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permitir requisições sem origin (ex: mobile apps, Postman, curl)
+    if (!origin) return callback(null, true);
+    
+    // Lista de origens permitidas
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173',
+    ];
+    
+    // Verificar se é uma URL do Vercel
+    const isVercel = /\.vercel\.app$/.test(origin) || origin.includes('vercel');
+    
+    // Verificar se é uma URL localhost
+    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+    
+    // Permitir se estiver na lista ou for Vercel/localhost
+    if (allowedOrigins.includes(origin) || isVercel || isLocalhost) {
+      callback(null, true);
+    } else {
+      // Em desenvolvimento, permitir todas as origens
+      if (process.env.NODE_ENV !== 'production') {
+        callback(null, true);
+      } else {
+        // Em produção, permitir mesmo assim (por enquanto) mas logar
+        console.log(`CORS: Origin permitida - ${origin}`);
+        callback(null, true);
+      }
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

@@ -48,7 +48,15 @@ exports.login = async (req, res) => {
 
     const user = await User.findOne({ where: { email } });
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    if (!user) {
+      console.log(`Login falhou: usuário não encontrado - ${email}`);
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    
+    if (!isPasswordValid) {
+      console.log(`Login falhou: senha inválida para usuário - ${email}`);
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
@@ -59,13 +67,21 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user.id, role: user.role }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '1h' }
+      { expiresIn: '24h' } // Aumentar expiração para 24h
     );
 
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    const userResponse = {
+      id: String(user.id), // Garantir que o ID seja string
+      name: user.name,
+      email: user.email,
+      role: user.role
+    };
+
+    console.log(`Login bem-sucedido para: ${email}`);
+    res.json({ token, user: userResponse });
   } catch (error) {
     console.error('Erro ao fazer login:', error);
-    res.status(500).json({ error: 'Erro ao fazer login' });
+    res.status(500).json({ error: 'Erro ao fazer login', details: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
