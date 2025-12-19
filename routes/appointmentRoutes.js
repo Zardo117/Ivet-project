@@ -1,9 +1,42 @@
-// routes/appointmentRoutes.js
-
 const express = require('express');
 const router = express.Router();
 const appointmentController = require('../controllers/appointmentController');
 const authMiddleware = require('../middlewares/authMiddleware');
+
+// Todas as rotas requerem autenticação
+router.use(authMiddleware);
+
+/**
+ * @swagger
+ * /api/appointments:
+ *   get:
+ *     summary: Lista todos os agendamentos
+ *     tags: [Agendamentos]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de agendamentos
+ */
+router.get('/', appointmentController.getAllAppointments);
+
+/**
+ * @swagger
+ * /api/appointments/{id}:
+ *   get:
+ *     summary: Busca um agendamento pelo ID
+ *     tags: [Agendamentos]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Detalhes do agendamento
+ */
+router.get('/:id', appointmentController.getAppointmentById);
 
 /**
  * @swagger
@@ -21,51 +54,65 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *             type: object
  *             required:
  *               - date
- *               - vetId
  *               - petId
  *             properties:
  *               date:
  *                 type: string
  *                 format: date-time
  *                 description: Data e hora do agendamento
- *                 example: "2024-12-25T10:00:00Z"
- *               vetId:
- *                 type: integer
- *                 description: ID do veterinário responsável
- *                 example: 2
  *               petId:
  *                 type: integer
- *                 description: ID do pet que será atendido
- *                 example: 1
+ *                 description: ID do pet
+ *               vetId:
+ *                 type: integer
+ *                 description: ID do veterinário (opcional, usa o usuário logado se não fornecido)
  *               status:
  *                 type: string
- *                 enum: [scheduled, completed, canceled]
- *                 description: Status do agendamento
- *                 default: scheduled
- *                 example: scheduled
+ *                 enum: [Agendado, Concluido, Cancelado]
+ *               type:
+ *                 type: string
+ *                 enum: [Consulta, Vacina, Retorno, Cirurgia]
+ *     responses:
+ *       201:
+ *         description: Agendamento criado com sucesso
+ */
+router.post('/', appointmentController.createAppointment);
+
+/**
+ * @swagger
+ * /api/appointments/{id}:
+ *   put:
+ *     summary: Atualiza um agendamento
+ *     tags: [Agendamentos]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
- *         description: Agendamento criado com sucesso
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: integer
- *                 date:
- *                   type: string
- *                   format: date-time
- *                 vetId:
- *                   type: integer
- *                 petId:
- *                   type: integer
- *                 status:
- *                   type: string
- *       401:
- *         description: Não autenticado
+ *         description: Agendamento atualizado
  */
-router.post('/', authMiddleware, appointmentController.createAppointment);
+router.put('/:id', appointmentController.updateAppointment);
+
+/**
+ * @swagger
+ * /api/appointments/{id}:
+ *   delete:
+ *     summary: Remove um agendamento
+ *     tags: [Agendamentos]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Agendamento removido
+ */
+router.delete('/:id', appointmentController.deleteAppointment);
 
 /**
  * @swagger
@@ -75,81 +122,7 @@ router.post('/', authMiddleware, appointmentController.createAppointment);
  *     tags: [Agendamentos]
  *     security:
  *       - bearerAuth: []
- *     description: |
- *       Este endpoint cria um agendamento e, se sintomas forem fornecidos,
- *       utiliza um serviço de IA para gerar um diagnóstico preliminar baseado
- *       nos sintomas e informações do pet.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - petId
- *               - vetId
- *               - date
- *             properties:
- *               petId:
- *                 type: integer
- *                 description: ID do pet que será atendido
- *                 example: 1
- *               vetId:
- *                 type: integer
- *                 description: ID do veterinário responsável
- *                 example: 2
- *               date:
- *                 type: string
- *                 format: date-time
- *                 description: Data e hora do agendamento
- *                 example: "2024-12-25T10:00:00Z"
- *               symptoms:
- *                 type: string
- *                 description: Sintomas apresentados pelo pet (opcional, mas necessário para diagnóstico)
- *                 example: "Vômito, falta de apetite, letargia"
- *     responses:
- *       200:
- *         description: Agendamento criado com sucesso (com ou sem diagnóstico)
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 appointment:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                     date:
- *                       type: string
- *                       format: date-time
- *                     vetId:
- *                       type: integer
- *                     petId:
- *                       type: integer
- *                     status:
- *                       type: string
- *                 diagnosis:
- *                   type: object
- *                   nullable: true
- *                   description: Diagnóstico gerado pela IA (null se não houver sintomas)
- *                   properties:
- *                     id:
- *                       type: integer
- *                     appointmentId:
- *                       type: integer
- *                     possibleDiagnosis:
- *                       type: array
- *                       items:
- *                         type: string
- *                     recommendations:
- *                       type: string
- *                     symptoms:
- *                       type: string
- *       401:
- *         description: Não autenticado
  */
-router.post('/with-diagnosis', authMiddleware, appointmentController.createAppointmentWithDiagnosis);
+router.post('/with-diagnosis', appointmentController.createAppointmentWithDiagnosis);
 
 module.exports = router;
-

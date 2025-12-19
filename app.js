@@ -155,6 +155,7 @@ app.use('/api/appointments', require('./routes/appointmentRoutes'));
 app.use('/api/diagnosis', require('./routes/diagnosisRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/products', require('./routes/productRoutes'));
+app.use('/api/ai', require('./routes/aiRoutes'));
 
 // Rota raiz
 app.get('/', (req, res) => {

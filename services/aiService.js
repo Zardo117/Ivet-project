@@ -1,97 +1,180 @@
 // services/aiService.js
-// Serviço mock de IA para diagnóstico de pets
+// Serviço de IA usando Google Gemini
 
-/**
- * Serviço mock de IA para geração de diagnósticos
- * Em produção, este serviço seria substituído por uma chamada real ao serviço de IA
- */
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+// Inicializar o cliente Gemini
+let genAI = null;
+let availableModel = 'gemini-1.5-flash-latest'; // Modelo padrão
+
+if (process.env.GEMINI_API_KEY) {
+  genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  
+  // Tentar detectar modelo disponível
+  (async () => {
+    try {
+      // Lista de modelos para tentar
+      const modelsToTry = [
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro-latest',
+        'gemini-1.5-pro',
+        'gemini-pro',
+        'gemini-2.0-flash-exp'
+      ];
+      
+      // Tentar o primeiro modelo (vai falhar se não existir, mas vamos tentar quando necessário)
+      availableModel = modelsToTry[0];
+      console.log(`Usando modelo: ${availableModel}`);
+    } catch (error) {
+      console.error('Erro ao detectar modelo:', error);
+    }
+  })();
+}
+
 class AIService {
   /**
-   * Gera um diagnóstico baseado nos sintomas e informações do pet
-   * @param {string} symptoms - Sintomas apresentados pelo pet
-   * @param {string} species - Espécie do animal
-   * @param {string} breed - Raça do animal
-   * @returns {Promise<Object>} Diagnóstico gerado
+   * Tenta gerar conteúdo com um modelo, tentando outros se falhar
+   */
+  static async generateWithFallback(prompt) {
+    const modelsToTry = [
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro-latest',
+      'gemini-1.5-pro',
+      'gemini-pro'
+    ];
+
+    let lastError = null;
+    
+    for (const modelName of modelsToTry) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        console.log(`✅ Modelo funcionando: ${modelName}`);
+        return response.text();
+      } catch (error) {
+        console.log(`❌ Modelo ${modelName} não disponível, tentando próximo...`);
+        lastError = error;
+        continue;
+      }
+    }
+    
+    throw new Error(`Nenhum modelo disponível. Último erro: ${lastError?.message || 'Desconhecido'}`);
+  }
+
+  /**
+   * Gera uma análise clínica completa baseada nos sintomas
+   */
+  static async analyzeClinicalCase(species, breed, age, symptoms, history = '') {
+    if (!genAI) {
+      throw new Error('GEMINI_API_KEY não configurada');
+    }
+
+    try {
+      const prompt = `
+Você é um Especialista em Medicina Veterinária Sênior com anos de experiência.
+Analise o seguinte caso clínico e forneça uma análise completa e profissional.
+
+INSTRUÇÕES:
+1. Liste diagnósticos diferenciais prováveis com estimativas de probabilidade
+2. Sugira exames complementares relevantes
+3. Proponha um plano de tratamento inicial
+4. Indique sinais de alerta que requerem atenção imediata
+5. Seja específico, técnico, mas claro
+
+DADOS DO PACIENTE:
+- Espécie: ${species}
+- Raça: ${breed || 'Não informada'}
+- Idade: ${age} anos
+
+SINTOMAS ATUAIS:
+${symptoms}
+
+HISTÓRICO MÉDICO:
+${history || 'Não informado'}
+
+Formate a resposta em Markdown claro e profissional, usando:
+- Títulos (##) para seções
+- Listas para diagnósticos e recomendações
+- Destaque para informações críticas
+
+IMPORTANTE: Sempre enfatize que esta é uma análise preliminar e que a decisão final deve ser do Médico Veterinário responsável.
+      `;
+
+      return await this.generateWithFallback(prompt);
+    } catch (error) {
+      console.error('Erro ao chamar Gemini API:', error);
+      throw new Error(`Erro ao processar análise clínica: ${error.message}`);
+    }
+  }
+
+  /**
+   * Chat com assistente veterinário
+   */
+  static async chat(message, conversationHistory = []) {
+    if (!genAI) {
+      throw new Error('GEMINI_API_KEY não configurada');
+    }
+
+    try {
+      // Construir contexto da conversa
+      const historyContext = conversationHistory
+        .slice(-6) // Últimas 6 mensagens para contexto
+        .map((msg, idx) => {
+          const isUser = idx % 2 === 0;
+          return isUser ? `Usuário: ${msg}` : `Assistente: ${msg}`;
+        })
+        .join('\n');
+
+      const prompt = `
+Você é o I-Vet Assistant, um assistente virtual especializado em medicina veterinária.
+Sua função é ajudar veterinários e tutores com:
+- Dúvidas sobre farmacologia
+- Orientações sobre triagem
+- Informações sobre procedimentos
+- Suporte clínico geral
+
+DIRETRIZES:
+- Seja conciso, profissional e técnico
+- Baseie suas respostas em conhecimentos veterinários sólidos
+- Se não tiver certeza, indique a necessidade de consulta presencial
+- Para questões graves ou emergenciais, sempre recomende busca imediata de atendimento
+
+${historyContext ? `\nHistórico da conversa:\n${historyContext}\n` : ''}
+
+Nova pergunta do usuário:
+${message}
+
+Responda de forma clara e objetiva:
+      `;
+
+      return await this.generateWithFallback(prompt);
+    } catch (error) {
+      console.error('Erro ao chamar Gemini API para chat:', error);
+      throw new Error(`Erro ao processar pergunta: ${error.message}`);
+    }
+  }
+
+  /**
+   * Gera diagnóstico baseado em sintomas (mantido para compatibilidade)
    */
   static async diagnose(symptoms, species = null, breed = null) {
-    // Simula um delay de processamento
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Lógica mock de diagnóstico baseada em palavras-chave nos sintomas
-    const symptomsLower = symptoms.toLowerCase();
-    const possibleDiagnosis = [];
-    const recommendations = [];
-
-    // Diagnósticos baseados em sintomas comuns
-    if (symptomsLower.includes('vômito') || symptomsLower.includes('vomito')) {
-      possibleDiagnosis.push('Gastrite');
-      possibleDiagnosis.push('Intoxicação alimentar');
-      recommendations.push('Manter o pet em jejum por 12 horas');
-      recommendations.push('Oferecer água em pequenas quantidades');
-    }
-
-    if (symptomsLower.includes('diarréia') || symptomsLower.includes('diarreia')) {
-      possibleDiagnosis.push('Gastroenterite');
-      possibleDiagnosis.push('Parasitose intestinal');
-      recommendations.push('Hidratação adequada');
-      recommendations.push('Exame de fezes recomendado');
-    }
-
-    if (symptomsLower.includes('febre') || symptomsLower.includes('temperatura')) {
-      possibleDiagnosis.push('Infecção');
-      possibleDiagnosis.push('Processo inflamatório');
-      recommendations.push('Monitorar temperatura');
-      recommendations.push('Medicação antitérmica se necessário');
-    }
-
-    if (symptomsLower.includes('tosse') || symptomsLower.includes('espirro')) {
-      possibleDiagnosis.push('Infecção respiratória');
-      possibleDiagnosis.push('Alergia');
-      recommendations.push('Isolamento se necessário');
-      recommendations.push('Avaliação respiratória completa');
-    }
-
-    if (symptomsLower.includes('coceira') || symptomsLower.includes('coçar')) {
-      possibleDiagnosis.push('Dermatite');
-      possibleDiagnosis.push('Alergia');
-      recommendations.push('Evitar lambedura excessiva');
-      recommendations.push('Avaliação dermatológica');
-    }
-
-    if (symptomsLower.includes('letargia') || symptomsLower.includes('apático') || symptomsLower.includes('fraco')) {
-      possibleDiagnosis.push('Desidratação');
-      possibleDiagnosis.push('Infecção sistêmica');
-      recommendations.push('Avaliação clínica completa');
-      recommendations.push('Exames laboratoriais recomendados');
-    }
-
-    if (symptomsLower.includes('falta de apetite') || symptomsLower.includes('não come')) {
-      possibleDiagnosis.push('Anorexia');
-      recommendations.push('Investigar causa subjacente');
-      recommendations.push('Suporte nutricional se necessário');
-    }
-
-    // Se não houver diagnóstico específico, adiciona diagnósticos genéricos
-    if (possibleDiagnosis.length === 0) {
-      possibleDiagnosis.push('Sintomas inespecíficos');
-      possibleDiagnosis.push('Avaliação clínica necessária');
-      recommendations.push('Observação dos sintomas');
-      recommendations.push('Retorno se sintomas persistirem');
-    }
-
-    // Adiciona recomendações gerais
-    recommendations.push('Manter o pet em ambiente tranquilo');
-    recommendations.push('Observar evolução dos sintomas');
-    recommendations.push('Retornar ao veterinário se necessário');
+    const analysis = await this.analyzeClinicalCase(
+      species || 'Canino',
+      breed || '',
+      0,
+      symptoms
+    );
 
     return {
-      possibleDiagnosis: [...new Set(possibleDiagnosis)], // Remove duplicatas
-      recommendations: recommendations.join('. ') + '.',
-      confidence: possibleDiagnosis.length > 0 ? 0.7 : 0.5,
-      note: 'Este é um diagnóstico preliminar gerado por IA. Consulte sempre um veterinário para diagnóstico definitivo.'
+      possibleDiagnosis: ['Análise completa gerada'],
+      recommendations: 'Ver análise completa para recomendações detalhadas',
+      confidence: 0.8,
+      note: analysis
     };
   }
 }
 
 module.exports = AIService;
-
