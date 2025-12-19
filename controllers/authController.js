@@ -42,8 +42,16 @@ exports.register = async (req, res) => {
       phone: phone || null
     });
 
-    // Remove a senha da resposta
-    const userResponse = user.toJSON();
+    // Remove a senha da resposta - tratar diferentes formatos de retorno do Sequelize
+    let userResponse;
+    if (typeof user.toJSON === 'function') {
+      userResponse = user.toJSON();
+    } else if (user.dataValues) {
+      userResponse = { ...user.dataValues };
+    } else {
+      userResponse = { ...user };
+    }
+    
     delete userResponse.password;
 
     console.log(`Usuário registrado com sucesso: ${email}`);
@@ -53,7 +61,8 @@ exports.register = async (req, res) => {
         id: String(userResponse.id),
         name: userResponse.name,
         email: userResponse.email,
-        role: userResponse.role
+        role: userResponse.role,
+        phone: userResponse.phone || null
       }
     });
   } catch (error) {
