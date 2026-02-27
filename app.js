@@ -20,12 +20,16 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:5173',
+      'http://localhost:8080',
+      'http://localhost:8081',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:5173',
+      'https://vet-harmony-hub.vercel.app',
+      'https://vetcare-pro.vercel.app',
     ];
     
-    // Verificar se é uma URL do Vercel
-    const isVercel = /\.vercel\.app$/.test(origin) || origin.includes('vercel');
+    // Verificar se é uma URL do Vercel (qualquer subdomínio .vercel.app)
+    const isVercel = /\.vercel\.app$/.test(origin) || origin.includes('vercel.app');
     
     // Verificar se é uma URL localhost
     const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
